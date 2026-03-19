@@ -1,8 +1,7 @@
 FROM maven:3.8.5-openjdk-17 AS build
 WORKDIR /app
 COPY . .
-
-# Mavenのローカルリポジトリをキャッシュしつつ、コンパイルを通す
+# 依存関係を先にダウンロードして、ビルドを安定させます
 RUN mvn clean package -DskipTests
 
 FROM eclipse-temurin:17-jdk-jammy
