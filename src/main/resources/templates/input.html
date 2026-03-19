@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${title}">スポット登録・編集</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; background: #f4f7f6; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input, select, textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        label { font-weight: bold; font-size: 13px; color: #555; }
+        button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; }
+        .btn-cancel { display: block; margin-top: 15px; text-align: center; color: #666; text-decoration: none; font-size: 14px; }
+		nav { background: #2d3436; color: white; height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+		.nav-left { display: flex; align-items: center; gap: 15px; }
+		.nav-title { font-weight: bold; font-size: 1.1em; color: #fff; text-decoration: none; }
+		.nav-right { display: flex; gap: 20px; }
+		.nav-right a { color: white; text-decoration: none; font-size: 0.9em; opacity: 0.7; transition: 0.3s; padding: 5px 0; }
+		.nav-right a:hover { opacity: 1; }
+		.nav-right a.active { opacity: 1; border-bottom: 2px solid #0984e3; font-weight: bold; }
+    </style>
+</head>
+<body>
+	<nav>
+	    <div class="nav-left">
+	        <a th:href="@{/trip/list}" class="nav-title">
+	            <span th:text="${trip != null} ? '✈️ ' + ${trip.title} : '✈️ Travel Map'">Travel Map</span>
+	        </a>
+	    </div>
+	    <div class="nav-right">
+	        <a th:href="${tripId != null} ? @{/map(tripId=${tripId})} : @{/map}">🗺 地図</a>
+	        <a th:href="@{/trip/list}">📋 旅行一覧</a>
+	        <a th:href="@{/traveler/list}">👤 訪問者</a>
+	        <a th:if="${tripId != null}" th:href="@{/dashboard(tripId=${tripId})}" class="active">📊 管理</a>
+	    </div>
+	</nav>
+
+    <div class="container">
+        <h2 th:text="${title}">スポット登録</h2>
+        
+        <div th:if="${errorMessage}" style="color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+            <strong th:text="${errorMessage}"></strong>
+        </div>
+
+		<form th:action="@{/save}" th:object="${spot}" method="post" id="spotForm">
+		    <input type="hidden" th:field="*{id}" id="spotId">
+		    <input type="hidden" name="tripId" th:value="${tripId}">
+
+		    <label>スポット名/住所</label>
+		    <input type="text" th:field="*{address}" id="addressField" required>
+
+		    <div style="display: flex; gap: 10px;">
+		        <div style="flex:1;">
+		            <label>緯度</label>
+		            <input type="number" step="0.000001" th:field="*{latitude}" id="latitudeField" readonly>
+		        </div>
+		        <div style="flex:1;">
+		            <label>経度</label>
+		            <input type="number" step="0.000001" th:field="*{longitude}" id="longitudeField" readonly>
+		        </div>
+		    </div>
+
+		    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+		        <div style="flex: 2;">
+		            <label>📅 予定日</label>
+		            <input type="date" th:field="*{visitDate}" th:min="${tripStartDate}" th:max="${tripEndDate}">
+		        </div>
+		        <div style="flex: 1;">
+		            <label>⏰ 時間</label>
+		            <input type="time" th:field="*{visitTime}">
+		        </div>
+		    </div>
+
+		    <div style="margin-bottom: 15px;">
+		        <label>🔢 巡る順番 (自動ソート用)</label>
+		        <input type="number" th:field="*{visitOrder}" placeholder="1" min="1">
+		    </div>
+
+		    <label>👤 訪問者 (複数選択可)</label>
+		    <div style="border: 1px solid #ddd; border-radius: 5px; padding: 10px; max-height: 120px; overflow-y: auto; background: #fafafa; margin-bottom: 15px;">
+		        <div th:each="t : ${travelers}" style="display: inline-block; width: 45%; margin-bottom: 5px;">
+		            <label style="font-weight: normal; cursor: pointer; display: flex; align-items: center;">
+		                <input type="checkbox" th:field="*{travelers}" th:value="${t.id}" style="width: auto; margin-right: 8px;">
+		                <span th:text="${t.name}">名前</span>
+		            </label>
+		        </div>
+		    </div>
+		    
+		    <div style="display: flex; gap: 10px;">
+		        <div style="flex:1;">
+		            <label>📁 カテゴリ</label>
+		            <select th:field="*{category}">
+		                <option value="観光">🗼 観光</option>
+		                <option value="グルメ">🍔 グルメ</option>
+		                <option value="宿泊">🏨 宿泊</option>
+		                <option value="その他">✨ その他</option>
+		            </select>
+		        </div>
+		        <div style="flex:1;">
+		            <label>📌 区分</label>
+		            <select th:field="*{kbn}">
+		                <option value="計画">📅 計画</option>
+		                <option value="完了">✅ 完了</option>
+		            </select>
+		        </div>
+		    </div>
+
+		    <label>💬 コメント</label>
+		    <textarea th:field="*{comment}" rows="2"></textarea>
+
+		    <button type="submit">💾 登録・変更を保存</button>
+		</form>
+        <a th:href="@{/dashboard(tripId=${tripId})}" class="btn-cancel">キャンセルして戻る</a>
+    </div>
+
+    <script th:if="${#strings.contains(#httpServletRequest.requestURI, 'add') or #strings.contains(#httpServletRequest.requestURI, 'edit')}">
+        // 地図オブジェクトが存在する場合のみ実行
+        if (typeof map !== 'undefined') {
+            map.on('click', function(e) {
+                var lat = e.latlng.lat;
+                var lng = e.latlng.lng;
+
+                // ID指定をHTMLと合わせました
+                document.getElementById('latitudeField').value = lat.toFixed(6);
+                document.getElementById('longitudeField').value = lng.toFixed(6);
+
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.display_name) {
+                            document.getElementById('addressField').value = data.display_name;
+                        }
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

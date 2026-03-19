@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${trip.id != null ? '旅行計画の編集' : '新しい旅行の作成'}">旅行計画</title>
+    
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; margin: 40px; display: flex; justify-content: center; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
+        h1 { font-size: 1.5rem; color: #333; margin-bottom: 20px; text-align: center; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; font-size: 14px; }
+        input, select { width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .btn-save { width: 100%; padding: 15px; background: #28a745; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-save:hover { background: #218838; }
+        .btn-cancel { display: block; text-align: center; margin-top: 15px; color: #777; text-decoration: none; font-size: 14px; }
+        .day-trip-label { background: #eee; padding: 8px 12px; border-radius: 5px; cursor: pointer; user-select: none; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; }
+		/* ナビゲーション全体のデザイン */
+		nav { 
+		    background: #2d3436; 
+		    color: white; 
+		    height: 50px; 
+		    display: flex;
+		    justify-content: space-between;
+		    align-items: center;
+		    padding: 0 25px;
+		    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+		}
+
+		.nav-left { display: flex; align-items: center; gap: 15px; }
+		.nav-title { font-weight: bold; font-size: 1.1em; color: #fff; text-decoration: none; }
+
+		.nav-right { display: flex; gap: 20px; }
+		.nav-right a { 
+		    color: white; 
+		    text-decoration: none; 
+		    font-size: 0.9em; 
+		    opacity: 0.7; 
+		    transition: 0.3s;
+		    padding: 5px 0;
+		}
+		.nav-right a:hover { opacity: 1; }
+		/* 現在のページを強調 */
+		.nav-right a.active { 
+		    opacity: 1; 
+		    border-bottom: 2px solid #0984e3; 
+		    font-weight: bold; 
+		}
+		/* チェックボックス周りの余白 */
+		.form-check-inline {
+		    margin-right: 15px;
+		    display: inline-flex;
+		    align-items: center;
+		    gap: 5px;
+		    cursor: pointer;
+		}
+		.form-check-input {
+		    width: auto; /* width: 100% を打ち消す */
+		    margin-bottom: 0; /* 下の余白を消す */
+		}
+		/* ナビゲーションを画面上部に固定 */
+		nav {
+		    position: fixed;
+		    top: 0;
+		    left: 0;
+		    width: 100%;
+		    z-index: 1000;
+		}
+		body {
+		    padding-top: 80px; /* ナビの高さ分空ける */
+		}
+		 </style>
+</head>
+<body>
+	<nav>
+	    <div class="nav-left">
+	        <a th:href="@{/trip/list}" class="nav-title">✈️ Travel Map</a>
+	    </div>
+	    <div class="nav-right">
+	        <a th:href="@{/map}">🗺 地図</a>
+	        <a th:href="@{/trip/list}">📋 旅行一覧</a>
+	        <a th:href="@{/traveler/list}">👤 訪問者</a>
+	        </div>
+	</nav>
+	    <div class="container">
+        <h1 th:text="${trip.id != null ? '⚙️ 旅行計画の編集' : '✈️ 新しい旅行を計画'}"></h1>
+        
+        <form th:action="@{/trip/save}" th:object="${trip}" method="post">
+            <input type="hidden" th:field="*{id}">
+
+            <div>
+    <label>旅行タイトル</label>
+    <input type="text" th:field="*{title}" required placeholder="例：北海道3泊4日の旅">
+</div>
+
+<div style="margin-bottom: 20px;">
+    <label>🌏 旅行区分</label>
+    <div style="display: flex; gap: 20px; align-items: center; background: #f8f9fa; padding: 10px; border-radius: 6px; border: 1px solid #ddd;">
+        <label style="margin-bottom: 0; cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: normal;">
+            <input type="radio" th:field="*{areaKbn}" value="国内" style="width: auto; margin-bottom: 0;"> 🇯🇵 国内
+        </label>
+        <label style="margin-bottom: 0; cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: normal;">
+            <input type="radio" th:field="*{areaKbn}" value="海外" style="width: auto; margin-bottom: 0;"> ✈️ 海外
+        </label>
+    </div>
+</div>
+
+<div style="display: flex; gap: 15px; align-items: flex-start;">
+                <div style="flex: 1;">
+                    <label>開始日</label>
+                    <input type="date" th:field="*{startDate}" id="sDate" required>
+                </div>
+
+                <div style="flex: 1;" id="endDateArea">
+                    <label>終了日</label>
+                    <input type="date" th:field="*{endDate}" id="eDate" required>
+                </div>
+            </div>
+			<div class="mb-3">
+			    <label>👤 参加メンバー</label><br>
+			    <div th:each="traveler : ${travelers}" class="form-check form-check-inline">
+			        <input class="form-check-input" type="checkbox" 
+			               th:field="*{travelers}" 
+			               th:value="${traveler.id}" 
+			               th:id="${'traveler-' + traveler.id}">
+			        <label class="form-check-label" 
+			               th:for="${'traveler-' + traveler.id}" 
+			               th:text="${traveler.name}">名前</label>
+			    </div>
+			</div>
+            <div style="margin-bottom: 20px; text-align: right;">
+                <label class="day-trip-label">
+                    <input type="checkbox" id="isDayTrip" onchange="toggleDayTrip()"> ☀️ 日帰り
+                </label>
+            </div>
+
+            <div>
+                <label>旅行の状況</label>
+                <select th:field="*{status}">
+                    <option value="計画中">🗓️ 計画中</option>
+                    <option value="旅行済み">✅ 旅行済み</option>
+                    <option value="計画倒れ">❌ 計画倒れ</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn-save">💾 旅行情報を保存する</button>
+        </form>
+
+        <a href="/trip/list" class="btn-cancel">キャンセル</a>
+    </div>
+
+<script>
+function toggleDayTrip() {
+    const sDate = document.getElementById('sDate');
+    const eDate = document.getElementById('eDate');
+    const isDayTrip = document.getElementById('isDayTrip');
+
+    if (isDayTrip.checked) {
+        eDate.value = sDate.value;
+        eDate.readOnly = true;
+        eDate.style.background = "#f0f0f0";
+    } else {
+        eDate.readOnly = false;
+        eDate.style.background = "white";
+    }
+}
+
+document.getElementById('sDate').addEventListener('change', function() {
+    if (document.getElementById('isDayTrip').checked) {
+        document.getElementById('eDate').value = this.value;
+    }
+});
+
+// 💡 編集画面を開いた時、開始日と終了日が同じなら「日帰り」に自動チェックを入れる
+window.onload = function() {
+    const sDate = document.getElementById('sDate');
+    const eDate = document.getElementById('eDate');
+    const isDayTrip = document.getElementById('isDayTrip');
+
+    // 1. 編集時、開始日と終了日が同じならチェックを入れる
+    if (sDate.value && sDate.value === eDate.value) {
+        isDayTrip.checked = true;
+        toggleDayTrip();
+    }
+    
+    // 2. もし日帰りチェックが入っていたら、終了日を同期させる
+    if (isDayTrip.checked) {
+        toggleDayTrip();
+    }
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>マイ旅行一覧</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding-top: 60px; }
+        .content-body { padding: 40px; }
+        
+        nav { 
+            background: #2d3436; color: white; height: 50px; 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 0 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
+        }
+        .nav-left { display: flex; align-items: center; gap: 15px; }
+        .nav-title { font-weight: bold; font-size: 1.1em; color: #fff; text-decoration: none; }
+        .nav-right { display: flex; gap: 20px; }
+        .nav-right a { color: white; text-decoration: none; font-size: 0.9em; opacity: 0.7; transition: 0.3s; padding: 5px 0; }
+        .nav-right a:hover { opacity: 1; }
+        .nav-right a.active { opacity: 1; border-bottom: 2px solid #0984e3; font-weight: bold; }
+
+        .trip-card { background: white; padding: 20px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .btn { padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold; display: inline-block; }
+        .btn-main { background: #007bff; color: white; }
+        .btn-add { background: #28a745; color: white; margin-bottom: 20px; }
+        
+        .date-text { margin: 5px 0; color: #555; font-size: 0.95em; }
+        .status-badge { font-size: 0.8em; background: #eee; padding: 2px 8px; border-radius: 10px; color: #666; }
+        .area-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.7em; font-weight: bold; color: white; margin-bottom: 5px; display: inline-block; }
+        
+        .edit-btn { background: #b2bec3; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 8px 12px; margin-right: 10px; font-size: 12px; transition: 0.3s; text-decoration: none; }
+        .edit-btn:hover { background: #636e72; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="nav-left">
+        <a th:href="@{/trip/list}" class="nav-title">✈️ Travel Map</a>
+    </div>
+    <div class="nav-right">
+        <a th:href="@{/map}">🗺 地図</a>
+        <a th:href="@{/trip/list}" class="active">📋 旅行一覧</a>
+        <a th:href="@{/traveler/list}">👤 訪問者</a>
+    </div>
+</nav>
+
+<div class="content-body">
+    <h2>✈️ マイ旅行計画</h2>
+    
+    <form th:action="@{/trip/list}" method="get" style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 25px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <label style="font-size: 0.85em; color: #636e72; font-weight: bold;">📊 状態:</label>
+            <select name="status" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #dfe6e9; background: #f8f9fa;">
+                <option value="all">すべて</option>
+                <option value="計画中" th:selected="${status == '計画中'}">計画中</option>
+                <option value="完了" th:selected="${status == '完了'}">完了</option>
+            </select>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <label style="font-size: 0.85em; color: #636e72; font-weight: bold;">🔃 並び順:</label>
+            <select name="sort" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #dfe6e9; background: #f8f9fa;">
+                <option value="newest" th:selected="${sort == 'newest'}">登録が新しい順</option>
+                <option value="oldest" th:selected="${sort == 'oldest'}">登録が古い順</option>
+                <option value="date" th:selected="${sort == 'date'}">出発日が近い順</option>
+            </select>
+        </div>
+        <button type="submit" style="background: #2d3436; color: white; border: none; padding: 7px 15px; border-radius: 4px; cursor: pointer; font-size: 0.9em; margin-left: auto;">適用する</button>
+    </form>
+
+    <a href="/trip/add" class="btn btn-add">+ 新しい旅行を作る</a>
+
+    <div th:each="t : ${trips}" class="trip-card">
+        <div>
+            <div th:if="${t.areaKbn == '海外'}" class="area-badge" style="background: #6c5ce7;">✈️ 海外</div>
+            <div th:if="${t.areaKbn == '国内' || t.areaKbn == null}" class="area-badge" style="background: #00b894;">🇯🇵 国内</div>
+
+            <h3 th:text="${t.title}" style="margin:0;">旅行タイトル</h3>
+            
+            <div class="date-text">
+                🗓 
+                <span th:text="${t.startDate}">2026-03-13</span>
+                <th:block th:if="${t.startDate != t.endDate}">
+                    ～ <span th:text="${t.endDate}">2026-03-15</span>
+                </th:block>
+                <th:block th:if="${t.startDate == t.endDate}">
+                    （日帰り）
+                </th:block>
+            </div>
+            <span class="status-badge" th:text="${t.status}">計画中</span>
+        </div>
+
+        <div style="display: flex; align-items: center;">
+            <a th:href="@{/trip/edit(id=${t.id})}" class="edit-btn">編集</a>
+            <a th:href="@{/dashboard(tripId=${t.id})}" class="btn btn-main">ダッシュボードを開く</a>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

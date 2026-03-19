@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>訪問者管理</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; background: #f4f7f6; }
+        .container { max-width: 600px; margin: 20px auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #eee; }
+        .color-badge { display: inline-block; width: 20px; height: 20px; border-radius: 50%; vertical-align: middle; margin-right: 10px; border: 1px solid #ccc; }
+        .add-box { margin-top: 30px; padding: 20px; border-top: 2px solid #333; background: #fafafa; }
+        input[type="text"], input[type="color"] { padding: 8px; margin-right: 10px; }
+        .btn-add { background: #28a745; color: white; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-delete { color: #dc3545; text-decoration: none; font-size: 14px; }
+		/* ナビゲーション全体のデザイン */
+		nav { 
+		    background: #2d3436; 
+		    color: white; 
+		    height: 50px; 
+		    display: flex;
+		    justify-content: space-between;
+		    align-items: center;
+		    padding: 0 25px;
+		    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+		}
+
+		.nav-left { display: flex; align-items: center; gap: 15px; }
+		.nav-title { font-weight: bold; font-size: 1.1em; color: #fff; text-decoration: none; }
+
+		.nav-right { display: flex; gap: 20px; }
+		.nav-right a { 
+		    color: white; 
+		    text-decoration: none; 
+		    font-size: 0.9em; 
+		    opacity: 0.7; 
+		    transition: 0.3s;
+		    padding: 5px 0;
+		}
+		.nav-right a:hover { opacity: 1; }
+		/* 現在のページを強調 */
+		.nav-right a.active { 
+		    opacity: 1; 
+		    border-bottom: 2px solid #0984e3; 
+		    font-weight: bold; 
+		}
+		</style>
+</head>
+<body>
+	<nav>
+	    <div class="nav-left">
+	        <a th:href="@{/trip/list}" class="nav-title">✈️ Travel Map</a>
+	    </div>
+	    <div class="nav-right">
+	        <a th:href="@{/map}">🗺 地図</a>
+	        <a th:href="@{/trip/list}">📋 旅行一覧</a>
+	        <a th:href="@{/traveler/list}" class="active">👤 訪問者</a>
+	    </div>
+	</nav>
+    <div class="container">
+        <h2>👤 訪問者マスタ</h2>
+        
+        <table>
+    <thead>
+        <tr>
+            <th>ID</th> <th colspan="2">名前とカラー編集</th> <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr th:each="t : ${travelers}">
+            <td th:text="${t.id}"></td>
+            <td colspan="2">
+                <form th:action="@{/traveler/update}" method="post" style="display: flex; align-items: center; gap: 10px;">
+                    <input type="hidden" name="id" th:value="${t.id}">
+                    <input type="text" name="name" th:value="${t.name}" required style="flex: 1; padding: 5px;">
+                    <input type="color" name="color" th:value="${t.color}" style="width: 40px; height: 30px; border: none; cursor: pointer;">
+                    <button type="submit" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">
+                        ✅ 更新
+                    </button>
+                </form>
+            </td>
+            <td>
+                <a th:href="@{/traveler/delete/{id}(id=${t.id})}" class="btn-delete" 
+                   onclick="return confirm('この人を削除しますか？')">🗑 削除</a>
+            </td>
+        </tr>
+    </tbody>
+</table>
+        <div class="add-box">
+    <h3>➕ 新しい訪問者を追加</h3>
+    <form th:action="@{/traveler/save}" method="post">
+    名前: <input type="text" name="name" required>
+    色: <input type="color" name="color">
+    <button type="submit">追加</button>
+</form>
+</div>
+    </div>
+</body>
+</html>

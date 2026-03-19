@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>旅行マップ</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; }
+        #map { 
+            width: 100%; 
+            height: calc(100vh - 110px); 
+            min-height: 400px; 
+            background: #f0f0f0; 
+        }
+        nav { 
+            background: #2d3436; 
+            color: white; 
+            height: 50px; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 25px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .nav-left { display: flex; align-items: center; gap: 15px; }
+        .nav-title { font-weight: bold; font-size: 1.1em; color: #fff; text-decoration: none; }
+        .nav-right { display: flex; gap: 20px; }
+        .nav-right a { color: white; text-decoration: none; font-size: 0.9em; opacity: 0.7; transition: 0.3s; padding: 5px 0; }
+        .nav-right a:hover { opacity: 1; }
+        .nav-right a.active { opacity: 1; border-bottom: 2px solid #0984e3; font-weight: bold; }
+        
+        .filter-bar {
+            background: #f8f9fa;
+            padding: 10px 25px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            border-bottom: 1px solid #dfe6e9;
+        }
+        .filter-group { display: flex; align-items: center; gap: 8px; }
+        .filter-group label { font-size: 0.85em; font-weight: bold; color: #636e72; }
+        .filter-group select { padding: 6px 10px; border-radius: 4px; border: 1px solid #ced4da; background-color: white; font-size: 0.9em; min-width: 150px; }
+        .custom-icon { background: none; border: none; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-left">
+            <a th:href="${tripId != null} ? @{/map(tripId=${tripId})} : @{/map}" class="nav-title">
+                <span id="navTitleText" th:text="${trip != null} ? '✈️ ' + ${trip.title} : '✈️ Travel Map'">Travel Map</span>
+            </a>
+        </div>
+        <div class="nav-right">
+            <a th:href="@{/map}" th:classappend="${tripId == null} ? 'active'">🌏 全体地図</a>
+            <a th:href="@{/trip/list}">📋 旅行一覧</a>
+            <a th:href="@{/traveler/list}">👤 訪問者</a>
+            <th:block th:if="${tripId != null}">
+                <a th:href="@{/dashboard(tripId=${tripId})}">📊 管理に戻る</a>
+            </th:block>
+        </div>
+    </nav>
+
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label>🗓 旅行：</label>
+            <select id="tripFilter" onchange="filterMarkers()">
+                <option value="all">すべての旅行</option>
+                <option th:each="t : ${trips}" th:value="${t.id}" th:text="${t.title}" th:selected="${t.id == tripId}"></option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>🔎 状態：</label>
+            <select id="statusFilter" onchange="filterMarkers()">
+                <option value="all">すべて表示</option>
+                <option value="planning">📅 計画中</option>
+                <option value="finished">✅ 完了</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>👤 訪問者：</label>
+            <select id="travelerFilter" onchange="filterMarkers()">
+                <option value="all">すべての訪問者</option>
+                <option th:each="tr : ${travelers}" th:value="${tr.id}" th:text="${tr.name}"></option>
+            </select>
+        </div>
+    </div>
+
+    <input type="hidden" id="todayDate" th:value="${#dates.format(#dates.createNow(), 'yyyy-MM-dd')}">
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script th:inline="javascript">
+        var spots = [[${spots != null ? spots : '[]'}]];
+        var map;
+        var markersList = []; 
+        var polyline = null; 
+
+        document.addEventListener('DOMContentLoaded', function() {
+            map = L.map('map').setView([36.0, 138.0], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+            if (spots && Array.isArray(spots)) {
+                spots.forEach(function(spot) {
+                    if (!spot.latitude || !spot.longitude) return;
+
+                    var c1 = "#666666", c2 = "#666666";
+                    var isMulti = false, names = "未設定";
+                    var travelerIds = [], travelerColors = {}; 
+
+                    if (spot.travelers && Array.isArray(spot.travelers) && spot.travelers.length > 0) {
+                        c1 = spot.travelers[0].color || "#007bff";
+                        names = spot.travelers.map(function(t){ 
+                            var tid = String(t.id);
+                            travelerIds.push(tid); 
+                            travelerColors[tid] = t.color || "#007bff"; 
+                            return t.name; 
+                        }).join(", ");
+                        if (spot.travelers.length > 1) {
+                            isMulti = true;
+                            c2 = spot.travelers[1].color || c1;
+                        }
+                    }
+
+                    var isPlanned = (spot.kbn === '計画');
+                    var op = isPlanned ? 0.3 : 0.9;
+                    var svg = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">';
+                    if (isMulti) {
+                        var gid = "grad" + spot.id;
+                        svg += '<defs><linearGradient id="' + gid + '" x1="0%" y1="0%" x2="100%" y2="0%">' +
+                               '<stop offset="50%" stop-color="' + c1 + '" stop-opacity="' + op + '" />' +
+                               '<stop offset="50%" stop-color="' + c2 + '" stop-opacity="' + op + '" />' +
+                               '</linearGradient></defs>' +
+                               '<circle cx="12" cy="12" r="11" fill="url(#' + gid + ')" stroke="none" />';
+                    } else {
+                        svg += '<circle cx="12" cy="12" r="11" fill="' + c1 + '" fill-opacity="' + op + '" stroke="none" />';
+                    }
+                    svg += '</svg>';
+
+                    var icon = L.divIcon({
+                        className: 'custom-icon',
+                        html: svg,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    });
+
+                    var marker = L.marker([spot.latitude, spot.longitude], {icon: icon});
+                    marker.bindPopup("<b>" + (spot.address || "住所未設定") + "</b><br>👤 " + names);
+
+                    // フィルター用の情報をマーカーに保存
+                    marker.tripId = String(spot.tripId);
+                    marker.endDate = spot.endDate; // ここで保存
+                    marker.travelerIds = travelerIds; 
+                    marker.travelerColors = travelerColors; 
+                    marker.originalSvg = svg;              
+                    marker.op = op;                         
+
+                    markersList.push(marker);
+                });
+            }
+            filterMarkers();
+            setTimeout(function(){ map.invalidateSize(); }, 800);
+        });
+
+        function filterMarkers() {
+            var tripSelect = document.getElementById("tripFilter");
+            var selectedTripId = String(tripSelect.value);
+            var selectedTravelerId = String(document.getElementById("travelerFilter").value);
+            var selectedStatus = document.getElementById("statusFilter").value;
+            var today = document.getElementById("todayDate").value;
+
+            var navTitle = document.getElementById("navTitleText");
+            if (selectedTripId === "all") {
+                navTitle.innerText = "✈️ Travel Map";
+            } else {
+                var tripName = tripSelect.options[tripSelect.selectedIndex].text;
+                navTitle.innerText = "✈️ " + tripName;
+            }
+
+            if (polyline) { map.removeLayer(polyline); polyline = null; }
+            var coords = []; 
+            var lineColor = "#007bff"; 
+
+            markersList.forEach(function(marker) {
+                var tripMatch = (selectedTripId === "all") || (marker.tripId === selectedTripId);
+                var travelerMatch = (selectedTravelerId === "all") || (marker.travelerIds.includes(selectedTravelerId));
+                
+                // 状態マッチ判定
+                var statusMatch = true;
+                if (selectedStatus === "finished") {
+                    statusMatch = marker.endDate && marker.endDate < today;
+                } else if (selectedStatus === "planning") {
+                    statusMatch = !marker.endDate || marker.endDate >= today;
+                }
+
+                if (tripMatch && travelerMatch && statusMatch) {
+                    marker.addTo(map);
+                    var newHtml = marker.originalSvg;
+                    
+                    if (selectedTravelerId !== "all") {
+                        lineColor = marker.travelerColors[selectedTravelerId] || "#007bff";
+                        newHtml = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
+                                  '<circle cx="12" cy="12" r="11" fill="' + lineColor + '" fill-opacity="' + marker.op + '" stroke="none" />' +
+                                  '</svg>';
+                        if (marker.op === 0.3) { coords.push(marker.getLatLng()); }
+                    }
+
+                    marker.setIcon(L.divIcon({
+                        className: 'custom-icon',
+                        html: newHtml,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    }));
+                } else {
+                    map.removeLayer(marker);
+                }
+            });
+
+            if (coords.length > 1) {
+                polyline = L.polyline(coords, { color: lineColor, weight: 5, opacity: 0.5, dashArray: '10, 15' }).addTo(map);
+            }
+
+            var visibleMarkers = markersList.filter(function(m) { return map.hasLayer(m); });
+            if (visibleMarkers.length > 0) {
+                var group = new L.featureGroup(visibleMarkers);
+                map.fitBounds(group.getBounds().pad(0.1));
+                setTimeout(function() {
+                    if (map.getZoom() > 10) { map.setZoom(8); }
+                }, 300);
+            }
+        }
+    </script>
+</body>
+</html>

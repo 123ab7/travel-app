@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>旅のダッシュボード</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* スタイルはそのまま維持 */
+        html, body { height: 100%; margin: 0; padding: 0; font-family: sans-serif; background: #f8f9fa; overflow: hidden; }
+        .main-container { display: flex; height: calc(100vh - 50px); width: 100%; }
+        .left-pane { width: 60%; display: flex; flex-direction: column; border-right: 1px solid #dfe6e9; }
+        #map-area { width: 100%; height: 50vh; background: #e0e0e0; }
+        .list-area { height: calc(50vh - 50px); overflow-y: auto; background: white; padding: 20px; }
+        .right-pane { width: 40%; padding: 25px; box-sizing: border-box; overflow-y: auto; background: #ffffff; }
+        h3, h4 { color: #2d3436; border-bottom: 2px solid #0984e3; padding-bottom: 8px; }
+        label { font-weight: bold; display: block; margin-top: 15px; font-size: 0.85em; color: #636e72; }
+        input, textarea { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #dfe6e9; border-radius: 6px; box-sizing: border-box; }
+        .save-btn { width: 100%; padding: 16px; background: #0984e3; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 25px; border-radius: 6px; }
+        .edit-btn { background: #b2bec3; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 8px 12px; margin-right: 5px; }
+        .delete-btn { background: #ff7675; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 8px 12px; }
+        nav { background: #2d3436; color: white; height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; }
+        .nav-right a { color: white; text-decoration: none; margin-left: 20px; opacity: 0.8; }
+        .nav-right a.active { opacity: 1; font-weight: bold; border-bottom: 2px solid #0984e3; }
+		/* スポット一覧のテーブルを綺麗に */
+		.list-area h4 {
+		    margin-bottom: 15px;
+		    font-size: 1.1em;
+		    border-bottom: 2px solid #0984e3;
+		    display: inline-block;
+		    padding-bottom: 5px;
+		}
+
+		table {
+		    width: 100%;
+		    border-collapse: collapse;
+		    margin-top: 10px;
+		}
+
+		.spot-row {
+		    border-bottom: 1px solid #eee;
+		    transition: background 0.2s;
+		}
+
+		.spot-row:hover {
+		    background-color: #f8fbff;
+		}
+
+		.time-cell {
+		    width: 80px;
+		    font-size: 0.85em;
+		    color: #636e72;
+		    padding: 12px 5px;
+		    line-height: 1.4;
+		}
+
+		.time-cell b {
+		    color: #2d3436;
+		    font-size: 1.1em;
+		}
+
+		.info-cell {
+		    padding: 12px 10px;
+		}
+
+		.address-text {
+		    font-weight: bold;
+		    color: #2d3436;
+		    display: block;
+		    margin-bottom: 4px;
+		}
+
+		.memo-text {
+		    font-size: 0.85em;
+		    color: #b2bec3;
+		    display: block;
+		}
+
+		.action-cell {
+		    width: 120px;
+		    text-align: right;
+		    padding: 12px 5px;
+		    white-space: nowrap;
+		}
+
+		/* ボタンを小さくスマートに */
+		.edit-btn, .delete-btn {
+		    padding: 6px 10px;
+		    font-size: 11px;
+		    border-radius: 4px;
+		    cursor: pointer;
+		    border: none;
+		    transition: 0.2s;
+		}
+
+		.edit-btn {
+		    background: #0984e3;
+		    color: white;
+		}
+
+		.edit-btn:hover { background: #0771c1; }
+
+		.delete-btn {
+		    background: #f1f2f6;
+		    color: #ff7675;
+		    margin-left: 4px;
+		}
+
+		.delete-btn:hover { background: #ff7675; color: white; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="nav-left">
+        <a th:href="@{/trip/list}" style="color:white; text-decoration:none; font-weight:bold;">
+            <span th:text="${trip != null} ? '✈️ ' + ${trip.title} : '✈️ Travel Map'">Travel Map</span>
+        </a>
+    </div>
+    <div class="nav-right">
+        <a th:href="@{/map(tripId=${tripId})}">🗺 地図</a>
+        <a th:href="@{/trip/list}">📋 旅行一覧</a>
+        <a th:href="@{/dashboard(tripId=${tripId})}" class="active">📊 管理</a>
+    </div>
+</nav>
+
+<div class="main-container">
+    <div class="left-pane">
+    <div id="map-area"></div>
+    <div class="list-area">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h4 style="margin:0;">📋 スポット一覧</h4>
+            <div style="display: flex; gap: 5px;">
+               <a th:href="@{/dashboard(tripId=${tripId}, sort='date')}" 
+   class="edit-btn" 
+   th:style="'text-decoration:none; font-size:10px; background:' + (${sort == 'date' or sort == null} ? '#0984e3' : '#636e72')">📅 日付順</a>
+
+<a th:href="@{/dashboard(tripId=${tripId}, sort='new')}" 
+   class="edit-btn" 
+   th:style="'text-decoration:none; font-size:10px; background:' + (${sort == 'new'} ? '#0984e3' : '#636e72')">🆕 新着順</a>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr style="font-size: 0.8em; color: #636e72; border-bottom: 2px solid #dfe6e9; text-align: left;">
+                    <th style="padding: 10px;">日時</th>
+                    <th style="padding: 10px;">場所・メモ</th>
+                    <th style="padding: 10px; text-align: right;">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="s : ${spots}" class="spot-row">
+                    <td class="time-cell">
+                        <div style="font-weight: bold; color: #2d3436;" th:text="${s.visitDate}">2024-05-01</div>
+                        <div style="font-size: 0.9em; color: #0984e3;" th:text="${s.visitTime}">10:00</div>
+                    </td>
+                    
+                    <td class="info-cell">
+                        <div class="address-text" th:text="${s.address}">スポット名・住所</div>
+                        <div class="memo-text" th:text="${s.comment}" style="font-style: italic; color: #b2bec3;">メモ内容...</div>
+                    </td>
+                    
+                    <td class="action-cell">
+                        <button type="button" class="edit-btn" th:onclick="'selectSpot(' + ${s.id} + ')'">編集</button>
+                        <form th:action="@{/delete}" method="post" style="display: inline;">
+                            <input type="hidden" name="id" th:value="${s.id}">
+                            <input type="hidden" name="tripId" th:value="${tripId}">
+                            <button type="submit" class="delete-btn" onclick="return confirm('本当に削除しますか？')">削除</button>
+                        </form>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+    <div class="right-pane">
+        <h3>📍 スポット登録・編集</h3>
+        <form th:action="@{/save}" method="post" id="saveForm">
+    <input type="hidden" id="spotId" name="id">
+    <input type="hidden" name="tripId" th:value="${tripId}">
+    <input type="hidden" name="sort" th:value="${sort}"> <label>スポット名・住所</label>
+            <input type="text" id="address" name="address" required>
+
+            <div style="display: flex; gap: 10px;">
+                <div style="flex:1;"><label>緯度</label><input type="text" id="lat" name="latitude" readonly required></div>
+                <div style="flex:1;"><label>経度</label><input type="text" id="lng" name="longitude" readonly required></div>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <div style="flex:1;">
+    <label>📅 日付</label>
+    <input type="date" id="visitDate" name="visitDate" 
+           th:value="${trip != null} ? ${trip.startDate} : ''"
+           th:min="${trip != null} ? ${trip.startDate} : ''"
+           th:max="${trip != null} ? ${trip.endDate} : ''">
+</div>
+                <div style="flex:1;"><label>⏰ 時間</label><input type="time" id="visitTime" name="visitTime"></div>
+            </div>
+
+            <label>💬 メモ</label>
+			<label>👤 訪問者</label>
+			<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px; background: #f1f2f6; padding: 10px; border-radius: 6px;">
+			    <div th:each="t : ${travelers}" style="display: flex; align-items: center; gap: 5px;">
+			        <input type="checkbox" name="travelers" th:value="${t.id}" class="traveler-check" 
+			               th:checked="${spot.travelers != null and spot.travelers.contains(t)}" style="width: auto; margin: 0;">
+			        <span th:text="${t.name}" th:style="'color:' + ${t.color} + '; font-weight: bold; font-size: 0.9em;'"></span>
+			    </div>
+			</div>
+            <textarea id="comment" name="comment" rows="3"></textarea>
+
+            <button type="submit" class="save-btn">💾 予定を保存する</button>
+            <button type="button" style="width:100%; margin-top:10px; padding:10px;" onclick="resetForm()">新規作成モードへ</button>
+        </form>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script th:inline="javascript">
+    var map;
+    var spots = [];
+    
+    /* 1. データの読み込み */
+    /*[# th:each="s : ${spots}"]*/
+    spots.push({
+        id: [[${s.id}]],
+        address: [[${s.address}]],
+        latitude: [[${s.latitude}]],
+        longitude: [[${s.longitude}]],
+        visitDate: [[${s.visitDate}]],
+        visitTime: [[${s.visitTime}]],
+        comment: [[${s.comment}]],
+        kbn: "",
+        travelers: [
+            /*[# th:each="t : ${s.travelers}"]*/
+            { id: [[${t.id}]],name: [[${t.name}]], color: [[${t.color}]] },
+            /*[/]*/
+        ]
+    });
+    /*[/]*/
+
+    /* 2. 初期化処理 */
+    document.addEventListener('DOMContentLoaded', function() {
+        // 地図の基本設定
+        map = L.map('map-area').setView([35.68, 139.76], 10);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        var coords = [];
+        spots.forEach(function(spot) {
+            if (!spot.latitude || !spot.longitude) return;
+            var pos = [spot.latitude, spot.longitude];
+            coords.push(pos);
+
+            // カラーピンの設定
+            var c1 = "#007bff", c2 = "#007bff", isMulti = false;
+            if (spot.travelers && spot.travelers.length > 0) {
+                c1 = spot.travelers[0].color || c1;
+                if (spot.travelers.length > 1) {
+                    isMulti = true;
+                    c2 = spot.travelers[1].color || c1;
+                }
+            }
+
+            // SVGアイコンの組み立て
+            var svg = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">';
+            if (isMulti) {
+                var gid = "grad-" + spot.id;
+                svg += '<defs><linearGradient id="' + gid + '" x1="0%" y1="0%" x2="100%" y2="0%">' +
+                       '<stop offset="50%" stop-color="' + c1 + '" />' +
+                       '<stop offset="50%" stop-color="' + c2 + '" />' +
+                       '</linearGradient></defs>';
+                svg += '<circle cx="12" cy="12" r="10" fill="url(#' + gid + ')" stroke="white" stroke-width="2" />';
+            } else {
+                svg += '<circle cx="12" cy="12" r="10" fill="' + c1 + '" stroke="white" stroke-width="2" />';
+            }
+            svg += '</svg>';
+
+            var icon = L.divIcon({ className: 'custom-icon', html: svg, iconSize: [24, 24], iconAnchor: [12, 12] });
+            L.marker(pos, {icon: icon}).addTo(map).bindPopup("<b>" + spot.address + "</b>");
+        });
+
+     // --- 💡 ここから追記：スポットを線（ルート）で結ぶ処理 ---
+        var pathCoords = spots
+            .filter(s => s.latitude && s.longitude) // 座標があるものだけ抽出
+            .sort((a, b) => {
+                // 日付と時間を結合して比較（旅程順に並び替え）
+                let dateA = (a.visitDate || "9999-12-31") + (a.visitTime || "23:59");
+                let dateB = (b.visitDate || "9999-12-31") + (b.visitTime || "23:59");
+                return dateA.localeCompare(dateB);
+            })
+            .map(s => [s.latitude, s.longitude]); // 座標の配列に変換
+
+        if (pathCoords.length > 1) {
+            L.polyline(pathCoords, {
+                color: '#0984e3',   // 線の色（鮮やかな青）
+                weight: 4,          // 線の太さ
+                opacity: 0.6,       // 透明度
+                dashArray: '10, 10', // 点線にすることで「移動中」を表現
+                lineJoin: 'round'
+            }).addTo(map);
+        }
+      
+
+        // 全てのピンが見えるように調整
+        if (coords.length > 0) map.fitBounds(coords, {padding: [50, 50]});
+        
+
+        // 💡 地図クリックイベント：空の時だけ住所を上書き
+        map.on('click', function(e) {
+            document.getElementById('lat').value = e.latlng.lat.toFixed(6);
+            document.getElementById('lng').value = e.latlng.lng.toFixed(6);
+            
+            var addressField = document.getElementById('address');
+            // 入力欄が空、または初期値の時だけAPIから住所を取得
+            if (addressField.value === "" || addressField.value === "指定した場所") {
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`)
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.display_name) addressField.value = d.display_name;
+                    });
+            }
+        });
+    });
+
+    /* 3. 一覧から選んだ時の処理 */
+    function selectSpot(id) {
+        var s = spots.find(x => x.id == id);
+        if(!s) return;
+
+        // --- 1. テキスト・日付フィールドのセット ---
+        document.getElementById('spotId').value = s.id;
+        document.getElementById('address').value = s.address;
+        document.getElementById('lat').value = s.latitude;
+        document.getElementById('lng').value = s.longitude;
+        document.getElementById('visitDate').value = s.visitDate || "";
+        document.getElementById('visitTime').value = s.visitTime || "";
+        document.getElementById('comment').value = s.comment || "";
+
+        // --- 2. 訪問者チェックボックスの連動 ---
+        // まず全員のチェックを外す
+        document.querySelectorAll('.traveler-check').forEach(cb => cb.checked = false);
+        
+        // スポットに登録されている訪問者IDを使って、ピンポイントでチェックを入れる
+        if (s.travelers) {
+            s.travelers.forEach(t => {
+                // value属性（ID）が一致するinput要素を直接探す
+                var target = document.querySelector('.traveler-check[value="' + t.id + '"]');
+                if (target) {
+                    target.checked = true;
+                }
+            });
+        }
+
+        // --- 3. 地図の移動 ---
+        if(map) map.flyTo([s.latitude, s.longitude], 15);
+    }
+	// 💡 resetForm（新規作成モード）の時もチェックを外すように追加
+	function resetForm() {
+		    document.getElementById('spotId').value = "";
+		    document.getElementById('saveForm').reset();
+		    document.querySelectorAll('.traveler-check').forEach(cb => cb.checked = false);
+		}
+
+		/* 4. フォームのリセット（新規登録時は旅行の参加者全員をデフォルトでONにする） */
+		/* function resetForm() {
+		    document.getElementById('spotId').value = "";
+		    document.getElementById('saveForm').reset();
+		    
+		    // 💡 単に外すのではなく、新規登録時は「全員チェック」にする
+		    document.querySelectorAll('.traveler-check').forEach(cb => {
+		        cb.checked = true; 
+		    });
+		}*/
+		function resetForm() {
+		    document.getElementById('spotId').value = "";
+		    document.getElementById('saveForm').reset();
+		    
+		    // 💡 新規作成モードに戻した時も開始日をセットし直す
+		    var startDate = [[${trip != null ? trip.startDate : ''}]];
+		    if(startDate) {
+		        document.getElementById('visitDate').value = startDate;
+		    }
+
+		    // 既存のチェックボックス処理
+		    document.querySelectorAll('.traveler-check').forEach(cb => {
+		        cb.checked = true; 
+		    });
+		}
+</script>
+</body>
+</html>

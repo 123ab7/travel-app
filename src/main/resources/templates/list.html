@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>行程表 - [[${trip.title}]]</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        .header { background: #333; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
+        .day-section { background: white; border-radius: 10px; padding: 20px; margin-bottom: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .day-title { border-bottom: 3px solid #007bff; color: #007bff; padding-bottom: 5px; margin-bottom: 20px; font-size: 1.5rem; }
+        
+        /* タイムライン形式のスタイル */
+        .itinerary-item { display: flex; gap: 20px; margin-bottom: 20px; position: relative; }
+        .itinerary-item::before { content: ""; position: absolute; left: 55px; top: 25px; bottom: -25px; width: 2px; background: #ddd; }
+        .itinerary-item:last-child::before { display: none; }
+
+        .time { min-width: 60px; font-weight: bold; color: #444; padding-top: 5px; }
+        .marker { width: 12px; height: 12px; background: #007bff; border-radius: 50%; margin-top: 10px; z-index: 1; }
+        .content { flex: 1; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 5px solid #007bff; }
+        .spot-name { font-weight: bold; font-size: 1.2rem; margin: 0; }
+        .category { font-size: 0.8rem; color: #fff; background: #666; padding: 2px 8px; border-radius: 10px; margin-left: 10px; vertical-align: middle; }
+        .comment { color: #666; font-size: 0.9rem; margin-top: 8px; white-space: pre-wrap; }
+        
+        .nav-links { text-align: center; margin-top: 20px; }
+        .nav-links a { margin: 0 10px; text-decoration: none; color: #007bff; font-weight: bold; }
+		/* ナビゲーション全体のデザイン */
+		nav { 
+		    background: #2d3436; 
+		    color: white; 
+		    height: 50px; 
+		    display: flex;
+		    justify-content: space-between;
+		    align-items: center;
+		    padding: 0 25px;
+		    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+		}
+
+		.nav-left { display: flex; align-items: center; gap: 15px; }
+		.nav-title { font-weight: bold; font-size: 1.1em; color: #fff; text-decoration: none; }
+
+		.nav-right { display: flex; gap: 20px; }
+		.nav-right a { 
+		    color: white; 
+		    text-decoration: none; 
+		    font-size: 0.9em; 
+		    opacity: 0.7; 
+		    transition: 0.3s;
+		    padding: 5px 0;
+		}
+		.nav-right a:hover { opacity: 1; }
+		/* 現在のページを強調 */
+		.nav-right a.active { 
+		    opacity: 1; 
+		    border-bottom: 2px solid #0984e3; 
+		    font-weight: bold; 
+		}
+		</style>
+</head>
+<body>
+	<nav>
+	    <div class="nav-left">
+	        <a href="/trip/list" class="nav-title">
+	            <span th:text="${trip != null} ? '✈️ ' + ${trip.title} : '✈️ Travel Map'">Travel Map</span>
+	        </a>
+	    </div>
+	    <div class="nav-right">
+	        <a th:href="${tripId != null} ? @{/map(tripId=${tripId})} : @{/map}" 
+	           th:classappend="${#httpServletRequest.requestURI == '/map'} ? 'active'">🗺 地図</a>
+	        
+	        <a th:href="@{/trip/list}" 
+	           th:classappend="${#httpServletRequest.requestURI == '/trip/list'} ? 'active'">📋 旅行一覧</a>
+	        
+	        <a th:href="@{/traveler/list}" 
+	           th:classappend="${#httpServletRequest.requestURI == '/traveler/list'} ? 'active'">👤 訪問者</a>
+
+	        <a th:if="${tripId != null}" th:href="@{/dashboard(tripId=${tripId})}" 
+	           th:classappend="${#httpServletRequest.requestURI == '/dashboard'} ? 'active'">📊 管理</a>
+	    </div>
+	</nav>
+	
+    <div class="container">
+        <div class="header">
+            <h1 th:text="${trip.title} + ' のしおり'">旅行計画</h1>
+            <p th:text="'現在のステータス: ' + ${trip.status}"></p>
+        </div>
+
+        <div class="day-section">
+            <div th:if="${#lists.isEmpty(spots)}">
+                <p style="text-align: center; color: #999;">まだ予定が登録されていません。</p>
+            </div>
+
+            <div th:each="spot : ${spots}" class="itinerary-item">
+                <div class="time" th:text="${spot.visitTime}">10:00</div>
+                <div class="marker"></div>
+                <div class="content">
+                    <div>
+                        <span class="spot-name" th:text="${spot.address}">目的地</span>
+                        <span class="category" th:text="${spot.category}">カテゴリ</span>
+                    </div>
+                    <div class="comment" th:text="${spot.comment}">コメント</div>
+                    <div style="margin-top: 5px; font-size: 0.8rem; color: #888;">
+                        📅 <span th:text="${spot.visitDate}">2026-03-13</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a th:href="@{/dashboard(tripId=${tripId})}">🗺 地図に戻る</a>
+            <a th:href="@{/trip/list}">📋 旅行一覧へ</a>
+            <a th:href="@{/add(tripId=${tripId})}">➕ 予定を追加</a>
+        </div>
+    </div>
+</body>
+</html>
